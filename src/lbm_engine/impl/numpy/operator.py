@@ -24,7 +24,7 @@ from src.lbm_engine.core.descriptor import LatticeDescriptor
 
 # Navier-stokes operators
 
-class BounceBackOperatorJax(BounceBackOperator):
+class BounceBackOperatorNumpy(BounceBackOperator):
     def __init__(self, descriptor, mask):
         self.opp = descriptor.opp
         self.mask = mask
@@ -35,7 +35,7 @@ class BounceBackOperatorJax(BounceBackOperator):
             f[mask, i] = f[mask, self.opp[i]]
 
 
-class VelocityDirichletOperatorJax(VelocityDirichletOperator):
+class VelocityDirichletOperatorNumpy(VelocityDirichletOperator):
     def __init__(self, descriptor, collisionOperator, mask, velocity_func):
         self.descriptor = descriptor
         self.collisionOperator = collisionOperator
@@ -54,7 +54,7 @@ class VelocityDirichletOperatorJax(VelocityDirichletOperator):
         f[mask] = feq[mask]
 
 
-class PressureDirichletOperatorJax(PressureDirichletOperator):
+class PressureDirichletOperatorNumpy(PressureDirichletOperator):
     def __init__(self, descriptor, collisionOperator, mask, rho_value):
         self.descriptor = descriptor
         self.collisionOperator = collisionOperator
@@ -75,7 +75,7 @@ class PressureDirichletOperatorJax(PressureDirichletOperator):
 
 # Advection-diffusion operators
 
-class PulsedConcentrationDirichletOperatorJax(PulsedConcentrationDirichletOperator):
+class PulsedConcentrationDirichletOperatorNumpy(PulsedConcentrationDirichletOperator):
     def __init__(self, descriptor, mask, base_value, pulse_value, t_start=0, t_end=None, sharpness=10.0):
         self.e = descriptor.e
         self.w = descriptor.w
@@ -107,7 +107,7 @@ class PulsedConcentrationDirichletOperatorJax(PulsedConcentrationDirichletOperat
         self.t += 1
 
 
-class ConstantScalarDirichletOperatorJax(ConstantScalarDirichletOperator):
+class ConstantScalarDirichletOperatorNumpy(ConstantScalarDirichletOperator):
     def __init__(self, descriptor, mask, value):
         self.e = descriptor.e
         self.w = descriptor.w
@@ -130,7 +130,7 @@ class ConstantScalarDirichletOperatorJax(ConstantScalarDirichletOperator):
             g[mask, i] = geq[mask]
 
 
-class ZeroGradientOutletOperatorJax(ZeroGradientOutletOperator):
+class ZeroGradientOutletOperatorNumpy(ZeroGradientOutletOperator):
     def __init__(self, descriptor, mask):
         self.e = descriptor.e
         self.w = descriptor.w
@@ -153,7 +153,7 @@ class ZeroGradientOutletOperatorJax(ZeroGradientOutletOperator):
 
 # Collision operators
 
-class BGK_collisionOperatorJax(BGK_collisionOperator[NDArray]):
+class BGK_collisionOperatorNumpy(BGK_collisionOperator[NDArray]):
     def __init__(self, tau: float, descriptor: LatticeDescriptor[NDArray]):
         self.tau = tau
         self.descriptor = descriptor
@@ -175,7 +175,7 @@ class BGK_collisionOperatorJax(BGK_collisionOperator[NDArray]):
         delta_f = -(1.0 / self.tau) * (f_lattice - feq)
         return delta_f
 
-class BGK_AdvectionDiffusion_collisionOperatorJax(BGK_AdvectionDiffusion_collisionOperator[NDArray]):
+class BGK_AdvectionDiffusion_collisionOperatorNumpy(BGK_AdvectionDiffusion_collisionOperator[NDArray]):
     def __init__(self, tau: float, descriptor: LatticeDescriptor[NDArray]):
         self.tau = tau
 

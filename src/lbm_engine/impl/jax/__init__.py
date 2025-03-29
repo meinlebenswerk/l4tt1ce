@@ -1,6 +1,6 @@
-from src.lbm_engine.impl.numpy.descriptor import D2Q9Numpy
-from src.lbm_engine.impl.numpy.lattice import Lattice2DJax, ScalarLattice2DJax
-from src.lbm_engine.impl.numpy.operator import (
+from src.lbm_engine.impl.jax.descriptor import D2Q9Jax
+from src.lbm_engine.impl.jax.lattice import Lattice2DJax, ScalarLattice2DJax
+from src.lbm_engine.impl.jax.operator import (
     BounceBackOperatorJax,
     VelocityDirichletOperatorJax,
     PressureDirichletOperatorJax,
@@ -12,7 +12,7 @@ from src.lbm_engine.impl.numpy.operator import (
 )
 
 # re-export the classes for easier, namespaced backend access
-D2Q9 = D2Q9Numpy
+D2Q9 = D2Q9Jax
 
 Lattice2D = Lattice2DJax
 ScalarLattice2D = ScalarLattice2DJax

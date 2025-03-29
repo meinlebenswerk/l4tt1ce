@@ -14,6 +14,6 @@ class D2Q9Numpy(LatticeDescriptor[NDArray]):
     """
     Q = 9 #directions
     e = np.array([[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1],
-                  [1, 1], [-1, 1], [-1, -1], [1, -1]], dtype=np.int32) #discretized velocity set
+                  [1, 1], [-1, 1], [-1, -1], [1, -1]], dtype=np.int32) # discretized velocity set
     w = np.array([4/9] + [1/9]*4 + [1/36]*4) # weights (is this correct? I hope so)
     opp = np.array([0, 3, 4, 1, 2, 7, 8, 5, 6], dtype=np.int32)

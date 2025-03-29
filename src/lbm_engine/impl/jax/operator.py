@@ -3,6 +3,8 @@
 from jax import Array
 import jax.numpy as jnp
 
+from dataclasses import dataclass
+
 from src.lbm_engine.core.operators.navier_stokes import (
     BounceBackOperator,
     VelocityDirichletOperator,
@@ -24,18 +26,19 @@ from src.lbm_engine.core.descriptor import LatticeDescriptor
 
 # Navier-stokes operators
 
-class BounceBackOperatorNumpy(BounceBackOperator):
+class BounceBackOperatorJax(BounceBackOperator):
     def __init__(self, descriptor, mask):
         self.opp = descriptor.opp
         self.mask = mask
 
-    def __call__(self, f, u=None, rho=None):
+    def __call__(self, f: Array, u: Array, rho: Array):
         mask = jnp.transpose(self.mask) if self.mask.shape != f.shape[:2] else self.mask
         for i in range(len(self.opp)):
-            f[mask, i] = f[mask, self.opp[i]]
+            f = f.at[mask, i].set(f[mask, self.opp[i]])
+        return f, u, rho
 
 
-class VelocityDirichletOperatorNumpy(VelocityDirichletOperator):
+class VelocityDirichletOperatorJax(VelocityDirichletOperator):
     def __init__(self, descriptor, collisionOperator, mask, velocity_func):
         self.descriptor = descriptor
         self.collisionOperator = collisionOperator
@@ -47,14 +50,14 @@ class VelocityDirichletOperatorNumpy(VelocityDirichletOperator):
 
     def __call__(self, f, u, rho):
         mask = jnp.transpose(self.mask) if self.mask.shape != f.shape[:2] else self.mask
-        u[mask] = self.velocity_func(u[mask].shape)
-        rho[mask] = 1.0  # assume constant pressure
-        u2 = u[:,:,0]**2 + u[:,:,1]**2
+        u = u.at[mask].set(self.velocity_func(u[mask].shape))
+        rho = rho.at[mask].set(1.0) # assume constant pressure
         feq = self.collisionOperator.compute_feq(rho, u, mask)
-        f[mask] = feq[mask]
+        f = f.at[mask].set(feq[mask])
+        return f, u, rho
 
 
-class PressureDirichletOperatorNumpy(PressureDirichletOperator):
+class PressureDirichletOperatorJax(PressureDirichletOperator):
     def __init__(self, descriptor, collisionOperator, mask, rho_value):
         self.descriptor = descriptor
         self.collisionOperator = collisionOperator
@@ -66,16 +69,16 @@ class PressureDirichletOperatorNumpy(PressureDirichletOperator):
 
     def __call__(self, f, u, rho):
         mask = jnp.transpose(self.mask) if self.mask.shape != f.shape[:2] else self.mask
-        rho[mask] = self.rho_value
-        u[mask, :] = 0.0
-        u2 = u[:,:,0]**2 + u[:,:,1]**2
+        rho = rho.at[mask].set(self.rho_value)
+        u = u.at[mask].set(0.0)
         feq = self.collisionOperator.compute_feq(rho, u, mask)
-        f[mask] = feq[mask]
+        f = f.at[mask].set(feq[mask])
+        return f, u, rho
 
 
 # Advection-diffusion operators
 
-class PulsedConcentrationDirichletOperatorNumpy(PulsedConcentrationDirichletOperator):
+class PulsedConcentrationDirichletOperatorJax(PulsedConcentrationDirichletOperator):
     def __init__(self, descriptor, mask, base_value, pulse_value, t_start=0, t_end=None, sharpness=10.0):
         self.e = descriptor.e
         self.w = descriptor.w
@@ -88,7 +91,7 @@ class PulsedConcentrationDirichletOperatorNumpy(PulsedConcentrationDirichletOper
         self.t_end = t_end
         self.sharpness = sharpness
 
-    def __call__(self, g, u, phi):
+    def __call__(self, g: Array, u: Array, phi: Array):
         mask = jnp.transpose(self.mask) if self.mask.shape != phi.shape else self.mask
 
         # Smooth pulse using tanh
@@ -96,18 +99,24 @@ class PulsedConcentrationDirichletOperatorNumpy(PulsedConcentrationDirichletOper
             value = self.pulse_value
         else:
             value = self.base_value
+        
+        phi = phi.at[mask].set(value)
 
-        phi[mask] = value
+        cu = jnp.matmul(u, self.e.T) # (ny, nx, Q)
+        geq = self.w[None, None, :] * phi[:, :, None] * (1 + 3*cu)
+        g = g.at[mask, :].set(geq[mask])
 
-        for i in range(self.Q):
-            cu = u[:, :, 0]*self.e[i, 0] + u[:, :, 1]*self.e[i, 1]
-            geq = self.w[i] * phi * (1 + 3*cu)
-            g[mask, i] = geq[mask]
-        #print(str(self.t) +" ww "+str(self.t_end)+ " ww " +str(value))
+        # for i in range(self.Q):
+        #     cu = u[:, :, 0]*self.e[i, 0] + u[:, :, 1]*self.e[i, 1]
+        #     geq = self.w[i] * phi * (1 + 3*cu)
+        #     g[mask, i] = geq[mask]
+        # #print(str(self.t) +" ww "+str(self.t_end)+ " ww " +str(value))
         self.t += 1
 
+        return g, u, phi
 
-class ConstantScalarDirichletOperatorNumpy(ConstantScalarDirichletOperator):
+
+class ConstantScalarDirichletOperatorJax(ConstantScalarDirichletOperator):
     def __init__(self, descriptor, mask, value):
         self.e = descriptor.e
         self.w = descriptor.w
@@ -115,45 +124,53 @@ class ConstantScalarDirichletOperatorNumpy(ConstantScalarDirichletOperator):
         self.mask = mask
         self.value = value
 
-    def __call__(self, g, u, phi):
+    def __call__(self, g: Array, u: Array, phi: Array):
         mask = self.mask
         if mask.shape != phi.shape:
             mask = mask.T
 
         # Set scalar field
-        phi[mask] = self.value
+        phi = phi.at[mask].set(self.value)
+        # phi[mask] = self.value
 
         # Compute equilibrium and update distribution
-        for i in range(self.Q):
-            cu = u[:, :, 0] * self.e[i, 0] + u[:, :, 1] * self.e[i, 1]
-            geq = self.w[i] * phi * (1 + 3 * cu)
-            g[mask, i] = geq[mask]
+        cu = jnp.matmul(u, self.e.T) # (ny, nx, Q)
+        geq = self.w[None, None, :] * phi[:, :, None] * (1 + 3*cu)
+        g = g.at[mask, :].set(geq[mask])
 
+        return g, u, phi
 
-class ZeroGradientOutletOperatorNumpy(ZeroGradientOutletOperator):
+class ZeroGradientOutletOperatorJax(ZeroGradientOutletOperator):
     def __init__(self, descriptor, mask):
         self.e = descriptor.e
         self.w = descriptor.w
         self.Q = descriptor.Q
         self.mask = mask
 
-    def __call__(self, g, u, phi):
+    def __call__(self, g: Array, u: Array, phi: Array):
         # Neumann boundary -> Boundary cell has to be the same value as the neighboring cell (is this cheating? Idk but it seems to work)
         mask = jnp.transpose(self.mask) if self.mask.shape != phi.shape else self.mask
 
         # Buffer our scalar value to apply our neighbors phi
         shifted_phi = jnp.roll(phi, shift=-1, axis=1)
-        phi[mask] = shifted_phi[mask]
+        # phi[mask] = shifted_phi[mask]
+        phi = phi.at[mask].set(shifted_phi[mask])
 
         # Compute equilibrium and update distribution
-        for i in range(self.Q):
-            cu = u[:, :, 0]*self.e[i, 0] + u[:, :, 1]*self.e[i, 1]
-            geq = self.w[i] * phi * (1 + 3*cu)
-            g[mask, i] = geq[mask]
+        # isn't there an operator already for this somewhere?
+        
+        cu = jnp.matmul(u, self.e.T) # (ny, nx, Q)
+        geq = self.w[None, None, :] * phi[:, :, None] * (1 + 3*cu)
+        g = g.at[mask, :].set(geq[mask])
+        # for i in range(self.Q):
+        #     cu = u[:, :, 0]*self.e[i, 0] + u[:, :, 1]*self.e[i, 1]
+        #     geq = self.w[i] * phi * (1 + 3*cu)
+        #     g[mask, i] = geq[mask]
+        return g, u, phi
 
 # Collision operators
 
-class BGK_collisionOperatorNumpy(BGK_collisionOperator[Array]):
+class BGK_collisionOperatorJax(BGK_collisionOperator[Array]):
     def __init__(self, tau: float, descriptor: LatticeDescriptor[Array]):
         self.tau = tau
         self.descriptor = descriptor
@@ -175,7 +192,7 @@ class BGK_collisionOperatorNumpy(BGK_collisionOperator[Array]):
         delta_f = -(1.0 / self.tau) * (f_lattice - feq)
         return delta_f
 
-class BGK_AdvectionDiffusion_collisionOperatorNumpy(BGK_AdvectionDiffusion_collisionOperator[Array]):
+class BGK_AdvectionDiffusion_collisionOperatorJax(BGK_AdvectionDiffusion_collisionOperator[Array]):
     def __init__(self, tau: float, descriptor: LatticeDescriptor[Array]):
         self.tau = tau
 

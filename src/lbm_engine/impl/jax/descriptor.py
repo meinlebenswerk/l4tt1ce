@@ -8,7 +8,7 @@ from src.lbm_engine.core.descriptor import LatticeDescriptor
 
 
 
-class D2Q9Numpy(LatticeDescriptor[jax.Array]):
+class D2Q9Jax(LatticeDescriptor[jax.Array]):
     """
     D2Q9 Lattice Descriptor
     This is a 2D lattice with 9 velocity directions

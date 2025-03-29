@@ -1,10 +1,10 @@
 # ABC for lattice classes, implementations in impl/core/...
 
+import numpy as np
 from abc import ABC, abstractmethod
 from src.lbm_engine.core.operators.advection_diffusion import ADOperator
 from src.lbm_engine.core.operators.navier_stokes import NSOperator
 
-import numpy as np
 from numpy.typing import NDArray
 
 class Lattice2D(ABC):

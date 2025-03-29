@@ -1,6 +1,7 @@
 # ABCs for advection-diffusion operators
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 # TODO -> we most likely want some typing for the operator functions
 # but that only works if we know the underlying types of the implementation, aka what backend we are using
@@ -15,7 +16,7 @@ class ADOperator(ABC):
     """
 
     @abstractmethod
-    def __call__(self, g, u, phi) -> None:
+    def __call__(self, g, u, phi) -> Any:
         pass
 
 

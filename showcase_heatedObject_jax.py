@@ -139,37 +139,26 @@ def setupAdvectionDiffusionLattice():
 ADLattice = setupAdvectionDiffusionLattice()
 NSLattice = setupNavierStokesLattice()
 
-# setup a jit-compilable step-function
-if implementation == "jax":
-    def step_lattice(NSLattice, ADLattice, num: int = 1): # type: ignore
-        for i in range(num):
-            # Stream both lattices
-            NSLattice.step()
-            ADLattice.u = NSLattice.u
-            ADLattice.step()
-        return NSLattice, ADLattice
-else:
-    def step_lattice(NSLattice, ADLattice, num: int = 1): # type: ignore
-        for i in range(1):
-            # Stream both lattices
-            NSLattice.step()
-            ADLattice.u = NSLattice.u
-            ADLattice.step()
-        return NSLattice, ADLattice
-
 t = 0
 num_step = 100
+times = []
 
 # Main Simulation Loop
-while t < timesteps:
+for t in range(timesteps):
     time_in = time.time()
     # we stream & collide both lattices and apply the velocity field from the NS Lattice to the AD Lattice
-    NSLattice, ADLattice = step_lattice(NSLattice, ADLattice, num=num_step)
+    NSLattice.step()
+    # TODO: wrap this in a utility function to make it a little more convenient
+    if implementation == "jax":
+        ADLattice.state.u = NSLattice.state.u
+    else:
+        ADLattice.u = NSLattice.u
+    ADLattice.step()
     time_out = time.time()
-    t += num_step
+    times.append(time_out - time_in)
 
     if t % plot_interval == 0:
-            avg_time = (time_out - time_in) / num_step
+            avg_time = np.mean(np.array(times))
             print(f"Average time per step: {avg_time:.4f} seconds | {1.0/avg_time:.2f} steps/s")
             print("Timestep " + str(t) + " / " + str(timesteps))
             # Save the VTI Files for Paraview
