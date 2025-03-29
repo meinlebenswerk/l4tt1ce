@@ -5,5 +5,8 @@ __pycache__
 .mypy_cache
 
 # generated files
+*.png
 frames
 *.vti
+output_vti
+*.mp4

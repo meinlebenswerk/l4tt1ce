@@ -1,14 +1,33 @@
 import time
-import numpy as np
-from src.lbm_engine.impl.numpy import (
-    D2Q9,
-    Lattice2D, ScalarLattice2D,
-    BounceBackOperator, PressureDirichletOperator, VelocityDirichletOperator, ZeroGradientOutletOperator, ConstantScalarDirichletOperator,
-    BGK_collisionOperator,
-    BGK_AdvectionDiffusion_collisionOperator
-)
+
+
+implementation = "jax"  # Change this to "numpy" if you want to use the numpy implementation
+
+if implementation == "numpy":
+    import numpy as np
+    from src.lbm_engine.impl.numpy import (
+        D2Q9,
+        Lattice2D, ScalarLattice2D,
+        BounceBackOperator, PressureDirichletOperator, VelocityDirichletOperator, ZeroGradientOutletOperator, ConstantScalarDirichletOperator,
+        BGK_collisionOperator,
+        BGK_AdvectionDiffusion_collisionOperator
+    )
+    from src.lbm_engine.impl.numpy.geometry import create_triangle_mask, create_rectangle_mask
+elif implementation == "jax":
+    import jax
+    import jax.numpy as np
+    from src.lbm_engine.impl.jax import (
+        D2Q9,
+        Lattice2D, ScalarLattice2D,
+        BounceBackOperator, PressureDirichletOperator, VelocityDirichletOperator, ZeroGradientOutletOperator, ConstantScalarDirichletOperator,
+        BGK_collisionOperator,
+        BGK_AdvectionDiffusion_collisionOperator
+    )
+    from src.lbm_engine.impl.jax.geometry import create_triangle_mask, create_rectangle_mask
+else:
+    raise ValueError("Invalid implementation selected. Choose either 'numpy' or 'jax'.")
+
 from src.lbm_engine.utils import PrintLatticeInformation
-from src.lbm_engine.impl.numpy.geometry import create_triangle_mask, create_rectangle_mask
 from src.lbm_engine.core.visualization import export_fields_vti, visualize_combined
 
 """ This is a basic demonstration of the implementation that showcases a heated object in a channel.
@@ -75,7 +94,7 @@ def setupNavierStokesLattice():
     # Velocity inlet on the left (Dirichlet Velocity Boundary)
     inlet_mask = X == 0
     def inlet_velocity(shape):
-        return np.zeros(shape) + [u_max, 0]
+        return np.zeros(shape) + np.array([u_max, 0])
     NSLattice.addOperator("inlet", VelocityDirichletOperator(NSLattice.descriptor, collisionOperatorBGK, inlet_mask, inlet_velocity))
 
     # Constant pressure Dirichlet on the outlet (right)
@@ -120,17 +139,37 @@ def setupAdvectionDiffusionLattice():
 ADLattice = setupAdvectionDiffusionLattice()
 NSLattice = setupNavierStokesLattice()
 
-times = []
-for t in range(timesteps):
+# setup a jit-compilable step-function
+if implementation == "jax":
+    def step_lattice(NSLattice, ADLattice, num: int = 1): # type: ignore
+        for i in range(num):
+            # Stream both lattices
+            NSLattice.step()
+            ADLattice.u = NSLattice.u
+            ADLattice.step()
+        return NSLattice, ADLattice
+else:
+    def step_lattice(NSLattice, ADLattice, num: int = 1): # type: ignore
+        for i in range(1):
+            # Stream both lattices
+            NSLattice.step()
+            ADLattice.u = NSLattice.u
+            ADLattice.step()
+        return NSLattice, ADLattice
+
+t = 0
+num_step = 100
+
+# Main Simulation Loop
+while t < timesteps:
     time_in = time.time()
     # we stream & collide both lattices and apply the velocity field from the NS Lattice to the AD Lattice
-    NSLattice.step()
-    ADLattice.u = NSLattice.u # coupling
-    ADLattice.step()
+    NSLattice, ADLattice = step_lattice(NSLattice, ADLattice, num=num_step)
     time_out = time.time()
-    times.append(time_out - time_in)
+    t += num_step
+
     if t % plot_interval == 0:
-            avg_time = np.mean(np.array(times))
+            avg_time = (time_out - time_in) / num_step
             print(f"Average time per step: {avg_time:.4f} seconds | {1.0/avg_time:.2f} steps/s")
             print("Timestep " + str(t) + " / " + str(timesteps))
             # Save the VTI Files for Paraview
@@ -139,5 +178,4 @@ for t in range(timesteps):
             visualize_combined(ADLattice, t, overall_title="Heated Object in Channel")
             # cool little method for plotting our Lattice Information (more of a gimmic)
             PrintLatticeInformation(t, NSLattice, ADLattice)
-            times = []
 

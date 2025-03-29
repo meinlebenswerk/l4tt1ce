@@ -1,3 +1,5 @@
+# Geometry helper methods for creating masks, not yet generalized
+
 import numpy as np
 
 """ This file contains some geometry helper methods to create geometry masks

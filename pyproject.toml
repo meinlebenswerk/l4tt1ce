@@ -10,6 +10,7 @@ python = ">=3.11, <=3.12"
 numpy = "^2.2.4"
 matplotlib = "^3.10.1"
 pyevtk = "^1.6.0"
+jax = {extras = ["cuda12"], version = "^0.5.3"}
 
 
 [tool.poetry.group.dev.dependencies]

@@ -40,7 +40,7 @@ poetry run python showcase_heatedObject.py
 | Feature                          | Status   | Description                                        |
 |----------------------------------|----------|----------------------------------------------------|
 | 2D Simulation                    | ✅ Done  | Current implementation supports 2D flows           |
-| Dirichlet & Neumann BCs         | ✅ Done  | Velocity, pressure, concentration, flux boundaries |
+| Dirichlet & Neumann BCs          | ✅ Done  | Velocity, pressure, concentration, flux boundaries |
 | Coupled Scalar Transport         | ✅ Done  | Advection-diffusion modeling                       |
 | 3D Simulation                    | 🚧 WIP   | Planned for future release                         |
 | Geometry from Images             | 🔜 Todo  | Planned feature                                    |
